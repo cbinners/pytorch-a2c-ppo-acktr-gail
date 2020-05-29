@@ -40,7 +40,7 @@ class PPO():
         action_loss_epoch = 0
         dist_entropy_epoch = 0
 
-        for e in tdqm(range(self.ppo_epoch)):
+        for e in tqdm(range(self.ppo_epoch)):
             if self.actor_critic.is_recurrent:
                 data_generator = rollouts.recurrent_generator(
                     advantages, self.num_mini_batch)
