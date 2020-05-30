@@ -15,7 +15,9 @@ class PPO():
                  lr=None,
                  eps=None,
                  max_grad_norm=None,
-                 use_clipped_value_loss=True):
+                 use_clipped_value_loss=True,
+                 use_gradient_accumulation=False,
+                 gradient_accumulation_steps=1):
 
         self.actor_critic = actor_critic
 
@@ -28,6 +30,14 @@ class PPO():
 
         self.max_grad_norm = max_grad_norm
         self.use_clipped_value_loss = use_clipped_value_loss
+
+        # Gradient accumulation
+        self.use_gradient_accumulation = use_gradient_accumulation
+        self.gradient_accumulation_steps = gradient_accumulation_steps
+
+        if self.use_gradient_accumulation:
+            if self.num_mini_batch % self.gradient_accumulation_steps != 0:
+                print("num_mini_batch must be a multiple of gradient_accumulation_steps")
 
         self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
@@ -48,7 +58,9 @@ class PPO():
                 data_generator = rollouts.feed_forward_generator(
                     advantages, self.num_mini_batch)
 
-            for sample in data_generator:
+            # Zero the gradient
+            self.optimizer.zero_grad()
+            for i, sample in enumerate(data_generator):
                 obs_batch, recurrent_hidden_states_batch, actions_batch, \
                    value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, \
                         adv_targ = sample
@@ -76,12 +88,25 @@ class PPO():
                 else:
                     value_loss = 0.5 * (return_batch - values).pow(2).mean()
 
-                self.optimizer.zero_grad()
-                (value_loss * self.value_loss_coef + action_loss -
-                 dist_entropy * self.entropy_coef).backward()
+
+                loss = (value_loss * self.value_loss_coef + action_loss - dist_entropy * self.entropy_coef)
+
+                # Reduce in case of gradient accum
+                if self.use_gradient_accumulation:
+                    loss = loss / self.gradient_accumulation_steps
+
+                loss.backward()
                 nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                          self.max_grad_norm)
-                self.optimizer.step()
+
+                if self.use_gradient_accumulation:
+                    if (i+1) % self.gradient_accumulation_steps == 0:
+                        self.optimizer.step()
+                        self.optimizer.zero_grad()
+                else:
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
+
 
                 value_loss_epoch += value_loss.item()
                 action_loss_epoch += action_loss.item()
