@@ -3,8 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from tqdm import tqdm
-from apex import amp
+from tqdm.auto import tqdm
 
 class PPO():
     def __init__(self,
@@ -19,8 +18,7 @@ class PPO():
                  max_grad_norm=None,
                  use_clipped_value_loss=True,
                  use_gradient_accumulation=False,
-                 gradient_accumulation_steps=1,
-                 use_fp16=False):
+                 gradient_accumulation_steps=1):
 
         self.actor_critic = actor_critic
 
@@ -44,13 +42,6 @@ class PPO():
 
         self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
-        self.use_fp16 = use_fp16
-
-    def to_fp16(self):
-        print("Creating fp16 model and optim for PPO")
-        self.actor_critic, self.optimizer = amp.initialize(self.actor_critic, self.optimizer, opt_level='O2')
-        return self.actor_critic
-            
 
     def update(self, rollouts):
         advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]
@@ -106,14 +97,9 @@ class PPO():
                 if self.use_gradient_accumulation:
                     loss = loss / self.gradient_accumulation_steps
 
-                if self.use_fp16:
-                    with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                        scaled_loss.backward()
-                    nn.utils.clip_grad_norm_(amp.master_params(self.optimizer), self.max_grad_norm)
-                else:
-                    loss.backward()
-                    nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
-                                         self.max_grad_norm)
+                loss.backward()
+                nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
+                                        self.max_grad_norm)
 
 
                 if self.use_gradient_accumulation:
