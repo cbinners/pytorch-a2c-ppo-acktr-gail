@@ -43,7 +43,7 @@ class PPO():
         self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
 
-    def update(self, rollouts):
+    def update(self, rollouts, include_mask=None):
         advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]
         advantages = (advantages - advantages.mean()) / (
             advantages.std() + 1e-5)
@@ -58,7 +58,7 @@ class PPO():
                     advantages, self.num_mini_batch)
             else:
                 data_generator = rollouts.feed_forward_generator(
-                    advantages, self.num_mini_batch)
+                    advantages, self.num_mini_batch, include_mask=include_mask)
 
             # Zero the gradient
             self.optimizer.zero_grad()

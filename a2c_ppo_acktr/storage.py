@@ -107,7 +107,8 @@ class RolloutStorage(object):
     def feed_forward_generator(self,
                                advantages,
                                num_mini_batch=None,
-                               mini_batch_size=None):
+                               mini_batch_size=None,
+                               include_mask=None):
         num_steps, num_processes = self.rewards.size()[0:2]
         batch_size = num_processes * num_steps
 
@@ -119,6 +120,16 @@ class RolloutStorage(object):
                 "".format(num_processes, num_steps, num_processes * num_steps,
                           num_mini_batch))
             mini_batch_size = batch_size // num_mini_batch
+
+        # Only include examples which are valid.
+        indicies = list(range(batch_size))
+        if include_mask:
+            filtered_indicies = []
+            for i in indicies:
+                if include_mask[i]:
+                    filtered_indicies.append(i)
+            indicies = filtered_indicies
+
         sampler = BatchSampler(
             SubsetRandomSampler(range(batch_size)),
             mini_batch_size,
