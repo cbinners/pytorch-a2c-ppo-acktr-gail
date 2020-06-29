@@ -126,7 +126,7 @@ class RolloutStorage(object):
         if include_mask is not None:
             filtered_indicies = []
             for i in indicies:
-                if include_mask[i]:
+                if include_mask[i] == 1:
                     filtered_indicies.append(i)
             indicies = filtered_indicies
 
