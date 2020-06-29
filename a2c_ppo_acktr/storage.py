@@ -123,7 +123,7 @@ class RolloutStorage(object):
 
         # Only include examples which are valid.
         indicies = list(range(batch_size))
-        if include_mask:
+        if include_mask is not None:
             filtered_indicies = []
             for i in indicies:
                 if include_mask[i]:
@@ -131,7 +131,7 @@ class RolloutStorage(object):
             indicies = filtered_indicies
 
         sampler = BatchSampler(
-            SubsetRandomSampler(range(batch_size)),
+            SubsetRandomSampler(indicies),
             mini_batch_size,
             drop_last=True)
         for indices in sampler:
